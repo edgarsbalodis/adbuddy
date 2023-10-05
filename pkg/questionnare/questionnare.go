@@ -4,6 +4,7 @@ type Questionnare struct {
 	Question string
 	Options  OptionMap
 	Key      string
+	FollowUp bool
 }
 
 type QuestionnareList []*Questionnare

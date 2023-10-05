@@ -6,11 +6,13 @@ type UserContext struct {
 	ChatUser        *ChatUser
 	CurrentQuestion int
 	Questionnares   questionnare.QuestionnareList
-	Answers         AnswersMap // answers will be saved in db
+	Answers         AnswersMap
 }
 
 type UserContextMap map[int64]*UserContext
-type AnswersMap map[string]string
+
+// type AnswersMap map[string]string
+type AnswersMap map[string]interface{}
 
 func NewUserContext(ch *ChatUser, cq int, q questionnare.QuestionnareList) *UserContext {
 	return &UserContext{

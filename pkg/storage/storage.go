@@ -10,6 +10,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type DB struct {
+	client *mongo.Client
+}
+
 type Response struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty"`
 	UserID    int64              `bson:"userID"`
@@ -34,4 +38,9 @@ func NewMongoClient(connection string) (*mongo.Client, error) {
 		log.Println("Connected to Database")
 	}
 	return client, nil
+}
+
+func (db *DB) GetCollection(collection string) *mongo.Collection {
+	coll := db.client.Database("adbuddy").Collection(collection)
+	return coll
 }
