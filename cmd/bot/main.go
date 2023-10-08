@@ -16,6 +16,10 @@ func main() {
 	// mongo db connection
 	client, _ := storage.NewMongoClient(cfg.DatabaseUrl)
 	defer client.Disconnect(context.Background())
+	storage := storage.New(client)
+
+	// mongodb seeder
+	storage.Seed()
 
 	// Create a new bot instance
 	botInstance, err := bot.NewBotApi(cfg.TelegramBotToken)
@@ -24,7 +28,8 @@ func main() {
 	}
 
 	// telegram bot struct
-	tgBot := bot.NewBot(client, botInstance)
+	tgBot := bot.New(botInstance, storage)
+	tgBot.StartScraperCron()
 
 	tgBot.StartBot()
 }

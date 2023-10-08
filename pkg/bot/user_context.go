@@ -1,24 +1,24 @@
 package bot
 
-import "github.com/edgarsbalodis/adbuddy/pkg/questionnare"
+import (
+	"github.com/edgarsbalodis/adbuddy/pkg/storage"
+)
 
 type UserContext struct {
 	ChatUser        *ChatUser
 	CurrentQuestion int
-	Questionnares   questionnare.QuestionnareList
+	Questions       []storage.Question
 	Answers         AnswersMap
 }
 
 type UserContextMap map[int64]*UserContext
-
-// type AnswersMap map[string]string
 type AnswersMap map[string]interface{}
 
-func NewUserContext(ch *ChatUser, cq int, q questionnare.QuestionnareList) *UserContext {
+func NewUserContext(ch *ChatUser, cq int, q []storage.Question) *UserContext {
 	return &UserContext{
 		ChatUser:        ch,
 		CurrentQuestion: cq,
-		Questionnares:   q,
+		Questions:       q,
 		Answers:         make(AnswersMap),
 	}
 }

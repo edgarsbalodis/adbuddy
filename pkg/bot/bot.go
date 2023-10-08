@@ -3,19 +3,19 @@ package bot
 import (
 	"log"
 
+	"github.com/edgarsbalodis/adbuddy/pkg/storage"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Bot struct {
-	client *mongo.Client
-	tgBot  *tgbotapi.BotAPI
+	tgBot   *tgbotapi.BotAPI
+	Storage *storage.Storage
 }
 
-func NewBot(client *mongo.Client, bot *tgbotapi.BotAPI) *Bot {
+func New(bot *tgbotapi.BotAPI, storage *storage.Storage) *Bot {
 	return &Bot{
-		client: client,
-		tgBot:  bot,
+		tgBot:   bot,
+		Storage: storage,
 	}
 }
 

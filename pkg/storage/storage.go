@@ -5,27 +5,12 @@ import (
 	"log"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type DB struct {
-	client *mongo.Client
-}
-
-type Response struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty"`
-	UserID    int64              `bson:"userID"`
-	ChatID    int64              `bson:"chatID"`
-	Type      string             `bson:"type"`
-	Timestamp time.Time          `bson:"timestamp"`
-	Answers   []Answer           `bson:"answers"`
-}
-
-type Answer struct {
-	Key   string `bson:"key"`
-	Value string `bson:"value"`
+type Storage struct {
+	Client *mongo.Client
 }
 
 func NewMongoClient(connection string) (*mongo.Client, error) {
@@ -40,7 +25,13 @@ func NewMongoClient(connection string) (*mongo.Client, error) {
 	return client, nil
 }
 
-func (db *DB) GetCollection(collection string) *mongo.Collection {
-	coll := db.client.Database("adbuddy").Collection(collection)
+func New(client *mongo.Client) *Storage {
+	return &Storage{
+		Client: client,
+	}
+}
+
+func (s *Storage) GetCollection(collection string) *mongo.Collection {
+	coll := s.Client.Database("adbuddy").Collection(collection)
 	return coll
 }

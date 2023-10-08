@@ -6,10 +6,10 @@ import (
 	"log"
 	"strings"
 
-	"github.com/edgarsbalodis/adbuddy/pkg/questionnare"
 	"github.com/edgarsbalodis/adbuddy/pkg/storage"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func (b *Bot) handleMessage(update tgbotapi.Update, userContexts UserContextMap) {
@@ -44,29 +44,28 @@ func (b *Bot) handleMessage(update tgbotapi.Update, userContexts UserContextMap)
 }
 
 func (b *Bot) handleStartCommand(chatID, userID int64, userContexts UserContextMap, text string) {
-	// TODO:
-	// GET FIRST QUESTION FROM DB
-	button1 := tgbotapi.NewInlineKeyboardButtonData("Residences", "residence")
-	button2 := tgbotapi.NewInlineKeyboardButtonData("Flats", "flat")
+	q := b.Storage.GetMainQuestion()
+	opts := b.Storage.GetFilters()
+
+	row := []tgbotapi.InlineKeyboardButton{}
+	var btn tgbotapi.InlineKeyboardButton
+	for _, opt := range opts {
+		btn = tgbotapi.NewInlineKeyboardButtonData(opt.Name, opt.Value)
+		row = append(row, btn)
+	}
 
 	chatUser := CreateChatUser(userID, chatID)
 
-	q := questionnare.NewQuestionnare(initialQuestion, initialOptions, "Type")
-	ql := questionnare.QuestionnareList{q}
-
-	ctx := NewUserContext(chatUser, 0, ql)
+	ctx := NewUserContext(chatUser, 0, []storage.Question{q})
 
 	// add this UserContext to userContexts map
 	userContexts[userID] = ctx
-
-	// create row of buttons
-	row := []tgbotapi.InlineKeyboardButton{button1, button2}
 
 	// create the keyboard markup with the row of buttons
 	markup := tgbotapi.NewInlineKeyboardMarkup(row)
 
 	// ask initial question with provided answers
-	msg := tgbotapi.NewMessage(chatID, initialQuestion)
+	msg := tgbotapi.NewMessage(chatID, q.Text)
 	msg.ReplyMarkup = markup
 
 	_, err := b.tgBot.Send(msg)
@@ -77,7 +76,7 @@ func (b *Bot) handleStartCommand(chatID, userID int64, userContexts UserContextM
 
 func (b *Bot) handleFiltersFunction(userID, chatID int64) {
 	// find all responses from db based on chatID and userID
-	coll := b.client.Database("adbuddy").Collection("responses")
+	coll := b.Storage.Client.Database("adbuddy").Collection("responses")
 	filter := bson.M{
 		"userID": userID,
 		"chatID": chatID,
@@ -90,26 +89,32 @@ func (b *Bot) handleFiltersFunction(userID, chatID int64) {
 	if err := result.All(context.Background(), &data); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Print(data)
 
 	// send responses to chat so user can choose and start scraper with filter immediately
 	// Create a keyboard with a button
 	for _, val := range data {
 		msgText := val.Type + "\n"
 		// row := []tgbotapi.InlineKeyboardButton{}
-		for _, val := range val.Answers {
-			msgText += val.Key + ": " + val.Value + "\n"
-
-			// append to row
-			// row = append(row, button)
+		for _, innerVal := range val.Answers {
+			switch v := innerVal.Value.(type) {
+			case string:
+				msgText += innerVal.Key + ": " + v + "\n"
+			case primitive.A:
+				var txt string
+				for _, item := range v {
+					if strVal, ok := item.(string); ok {
+						txt += innerVal.Key + ": " + strVal + "\n"
+					} else {
+						// Handle case where item is not a string
+						fmt.Printf("Unexpected type inside array: %T\n", item)
+					}
+				}
+				msgText += txt
+			default:
+				fmt.Printf("Type of val.Value: %T\n", innerVal.Value)
+			}
 		}
-		// objectID := val.ID.Hex()
-		// if !ok {
-		// 	log.Fatal("Failed to retrieve ObjectId from document")
-		// }
 
-		// // Convert the ObjectId to a string
-		// objectIDStr := objectID.Hex()
 		addButton := tgbotapi.NewInlineKeyboardButtonData("Use", "use_btn_"+val.ID.Hex())
 		delButton := tgbotapi.NewInlineKeyboardButtonData("Delete", "delete_btn_"+val.ID.Hex())
 		row := []tgbotapi.InlineKeyboardButton{addButton, delButton}
@@ -127,6 +132,18 @@ func (b *Bot) handleFiltersFunction(userID, chatID int64) {
 		}
 
 	}
+}
+
+func (b *Bot) sendFollowUpQuestion(chatID int64) {
+	followupQ := "Do you want to add more?"
+	buttonYes := tgbotapi.NewInlineKeyboardButtonData("Yes", "follow_up_yes")
+	buttonNo := tgbotapi.NewInlineKeyboardButtonData("No", "follow_up_no")
+	row := []tgbotapi.InlineKeyboardButton{buttonYes, buttonNo}
+
+	markup := tgbotapi.NewInlineKeyboardMarkup(row)
+	msg := tgbotapi.NewMessage(chatID, followupQ)
+	msg.ReplyMarkup = markup
+	b.tgBot.Send(msg)
 }
 
 func (b *Bot) sendSuccessMessage(chatID int64) {
