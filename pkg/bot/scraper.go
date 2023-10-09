@@ -7,9 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edgarsbalodis/adbuddy/pkg/scraper"
 	"github.com/edgarsbalodis/adbuddy/pkg/storage"
-	"github.com/edgarsbalodis/scraper/pkg/filters"
-	"github.com/edgarsbalodis/scraper/pkg/scraper"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/robfig/cron/v3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -40,7 +39,7 @@ func scrape(answers AnswersMap, timestamp string, chatID int64) []string {
 		var wg sync.WaitGroup
 
 		for _, sr := range subregions {
-			filter := filters.NewEmptyFilter(answers["Type"].(string))
+			filter := scraper.NewEmptyFilter(answers["Type"].(string))
 			if filter != nil {
 				v := reflect.ValueOf(filter).Elem()
 				for key, val := range answers {
@@ -70,7 +69,7 @@ func scrape(answers AnswersMap, timestamp string, chatID int64) []string {
 		}
 
 	} else {
-		filter := filters.NewEmptyFilter(answers["Type"].(string))
+		filter := scraper.NewEmptyFilter(answers["Type"].(string))
 		if filter != nil {
 			v := reflect.ValueOf(filter).Elem()
 			for key, val := range answers {
