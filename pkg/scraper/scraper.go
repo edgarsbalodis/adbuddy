@@ -33,8 +33,6 @@ type PropertyFilter struct {
 // todo: rename to NewFilter
 func NewEmptyFilter(datatype string) interface{} {
 	switch datatype {
-	// case "residence":
-	// return &ResidenceConfig{}
 	case "flat", "residence":
 		return &PropertyFilter{}
 	default:
@@ -54,12 +52,14 @@ func ScrapeDataNew(filter interface{}) []string {
 		roomFilter      string
 		transactionType string
 		timestamp       string
+		rf              float32 // room filter to float32
 		nextHref        string
 		urls            []string
 		subr            string
 	)
 	// Create another collector to scrape ad details
 	detailCollector := c.Clone()
+	fmt.Print(adType, priceFilter, transactionType)
 
 	// creates url based on filter
 	baseUrl := "https://www.ss.com"
@@ -72,7 +72,7 @@ func ScrapeDataNew(filter interface{}) []string {
 			} else {
 				initialPage += "flats/"
 			}
-			adType = f.Type
+			// adType = f.Type
 			initialPage += f.Region + "/"
 			subr = f.Subregion
 			initialPage += f.Subregion + "/"
@@ -81,12 +81,14 @@ func ScrapeDataNew(filter interface{}) []string {
 			} else {
 				initialPage += "hand_over/"
 			}
-			transactionType = f.TransactionType
+			// transactionType = f.TransactionType
 			priceFilter = f.Price
 			roomFilter = f.NumOfRooms
 			timestamp = f.Timestamp
 		}
 	}
+	rf, _ = utils.StringToFloat32(roomFilter)
+	pf, _ := utils.StringToFloat32(priceFilter)
 
 	// find pages
 	// structure in ss.com
@@ -115,42 +117,68 @@ func ScrapeDataNew(filter interface{}) []string {
 	})
 
 	// data to scrape
-	c.OnHTML("form#filter_frm > table > tbody", func(h *colly.HTMLElement) {
-		h.ForEach("tr[id^='tr_']", func(_ int, el *colly.HTMLElement) {
-			if shouldStop {
-				return
-			}
+	// get all urls where matches price filter (price column is always last)
+	// this data is from base catalog
+	c.OnHTML("form#filter_frm > :nth-child(3) > tbody > tr[id^='tr_']", func(h *colly.HTMLElement) {
+		if shouldStop {
+			return
+		}
 
-			// based on type select these values
-			url := el.ChildAttr("td:nth-child(3) a", "href")
+		link := h.ChildAttr("td:nth-child(3) a", "href")
+		price := h.ChildText("td:last-child")
 
-			// the detail collector
-			url = baseUrl + url
+		// clean everything after €
+		parts := strings.Split(price, "€")
+		price = strings.TrimSpace(parts[0])
+		// remove comma
+		price = strings.ReplaceAll(price, ",", "")
 
+		priceFloat, err := strconv.ParseFloat(price, 32)
+		if err != nil {
+			fmt.Printf("Error converting price: %v\n", err)
+			return
+		}
+
+		// if price filter matches request then go to next step and visit details in ad
+		if float32(priceFloat) <= pf {
+			url := baseUrl + link
 			if url == baseUrl {
 				return
 			}
 			detailCollector.Visit(url)
-			// again check shouldStop
-			if shouldStop {
+		} else {
+			return
+		}
+	})
+
+	// Get all Details about ad (right now, just rooms)
+	detailCollector.OnHTML("table.options_list > tbody > tr > td > table > tbody > tr", func(e *colly.HTMLElement) {
+		key := e.ChildText("td.ads_opt_name") // "Istabas"
+		value := e.ChildText("td.ads_opt")    // "5"
+
+		// Clean up the key and value by removing unnecessary spaces and colons
+		key = strings.TrimSpace(strings.TrimSuffix(key, ":"))
+		value = strings.TrimSpace(value)
+
+		if key == "Istabas" {
+			rooms, err := strconv.ParseFloat(value, 32)
+			if err != nil {
+				fmt.Printf("Error converting rooms: %v\n", err)
 				return
 			}
-			// pass el, filters to functions which then returns struct to append of nil
-			// todo: I think here we need to use generics based on filter type??
-			var ad string
-			switch adType {
-			case "residence":
-				ad = processResidence(el, priceFilter, roomFilter, transactionType)
-			case "flat":
-				ad = processFlat(el, priceFilter, roomFilter, transactionType)
+
+			if float32(rooms) >= rf {
+				url := e.Request.URL.String()
+				// Append the URL to urls
+				urls = append(urls, url)
 			}
-			if len(ad) > 0 {
-				urls = append(urls, ad)
-			}
-		})
+
+			return
+		}
 	})
 
 	var dateFromAd string
+	// get date from ad
 	// I can refactor this, so I can get all information from this detail collector
 	detailCollector.OnHTML("table#page_main > tbody > tr:nth-child(2) > td > table > tbody > tr:nth-child(2) > td:nth-child(2)", func(e *colly.HTMLElement) {
 		date := e.Text
@@ -185,121 +213,121 @@ func ScrapeDataNew(filter interface{}) []string {
 }
 
 // think better solution what to return
-func processResidence(el *colly.HTMLElement, priceFilter, roomFilter, transactionType string) string {
-	url := el.ChildAttr("td:nth-child(3) a", "href")
-	description := el.ChildText("td:nth-child(3)")
-	address := el.ChildText("td:nth-child(4)")
-	area := el.ChildText("td:nth-child(5)")
-	floors := el.ChildText("td:nth-child(6)")
-	rooms := el.ChildText("td:nth-child(7)")
-	land := el.ChildText("td:nth-child(8)")
-	price := el.ChildText("td:nth-child(9)")
-	baseUrl := "https://www.ss.com"
+// func processResidence(el *colly.HTMLElement, priceFilter, roomFilter, transactionType string) string {
+// 	url := el.ChildAttr("td:nth-child(3) a", "href")
+// 	description := el.ChildText("td:nth-child(3)")
+// 	address := el.ChildText("td:nth-child(4)")
+// 	area := el.ChildText("td:nth-child(5)")
+// 	floors := el.ChildText("td:nth-child(6)")
+// 	rooms := el.ChildText("td:nth-child(7)")
+// 	land := el.ChildText("td:nth-child(8)")
+// 	price := el.ChildText("td:nth-child(9)")
+// 	baseUrl := "https://www.ss.com"
 
-	areaInt, err := strconv.ParseUint(area, 10, 16)
-	if err != nil {
-		fmt.Printf("Error converting area: %v\n", err)
-		return ""
-	}
+// 	areaInt, err := strconv.ParseUint(area, 10, 16)
+// 	if err != nil {
+// 		fmt.Printf("Error converting area: %v\n", err)
+// 		return ""
+// 	}
 
-	floorsInt, err := strconv.ParseUint(floors, 10, 8)
-	if err != nil {
-		fmt.Printf("Error converting floors: %v\n", err)
-		return ""
-	}
+// 	floorsInt, err := strconv.ParseUint(floors, 10, 8)
+// 	if err != nil {
+// 		fmt.Printf("Error converting floors: %v\n", err)
+// 		return ""
+// 	}
 
-	roomsInt, err := strconv.ParseFloat(rooms, 32)
-	if err != nil {
-		fmt.Printf("Error converting rooms: %v\n", err)
-		return ""
-	}
+// 	roomsInt, err := strconv.ParseFloat(rooms, 32)
+// 	if err != nil {
+// 		fmt.Printf("Error converting rooms: %v\n", err)
+// 		return ""
+// 	}
 
-	land = strings.Replace(land, " m²", "", -1)
-	landInt, err := strconv.ParseUint(land, 10, 16)
-	if err != nil {
-		fmt.Printf("Error converting land: %v\n", err)
-		return ""
-	}
+// 	land = strings.Replace(land, " m²", "", -1)
+// 	landInt, err := strconv.ParseUint(land, 10, 16)
+// 	if err != nil {
+// 		fmt.Printf("Error converting land: %v\n", err)
+// 		return ""
+// 	}
 
-	if transactionType == "sell" {
-		price = strings.Replace(price, "  €", "", -1)
-	} else {
-		parts := strings.Split(price, "  €")
-		price = parts[0]
-	}
-	price = strings.ReplaceAll(price, ",", "")
-	priceFloat, err := strconv.ParseFloat(price, 32)
-	if err != nil {
-		fmt.Printf("Error converting price: %v\n", err)
-		return ""
-	}
+// 	if transactionType == "sell" {
+// 		price = strings.Replace(price, "  €", "", -1)
+// 	} else {
+// 		parts := strings.Split(price, "  €")
+// 		price = parts[0]
+// 	}
+// 	price = strings.ReplaceAll(price, ",", "")
+// 	priceFloat, err := strconv.ParseFloat(price, 32)
+// 	if err != nil {
+// 		fmt.Printf("Error converting price: %v\n", err)
+// 		return ""
+// 	}
 
-	pf, _ := utils.StringToFloat32(priceFilter)
-	rf, _ := utils.StringToFloat32(roomFilter)
-	url = baseUrl + url
-	residence := Residence{Url: url, Description: description, Address: address, Area: uint16(areaInt), Floors: uint8(floorsInt), Rooms: float32(roomsInt), Land: uint16(landInt), Price: float32(priceFloat)}
+// 	pf, _ := utils.StringToFloat32(priceFilter)
+// 	rf, _ := utils.StringToFloat32(roomFilter)
+// 	url = baseUrl + url
+// 	residence := Residence{Url: url, Description: description, Address: address, Area: uint16(areaInt), Floors: uint8(floorsInt), Rooms: float32(roomsInt), Land: uint16(landInt), Price: float32(priceFloat)}
 
-	if residence.Price <= pf && residence.Rooms >= rf {
-		return residence.Url
-	}
-	return ""
-}
+// 	if residence.Price <= pf && residence.Rooms >= rf {
+// 		return residence.Url
+// 	}
+// 	return ""
+// }
 
-func processFlat(el *colly.HTMLElement, priceFilter, roomFilter, transactionType string) string {
-	url := el.ChildAttr("td:nth-child(3) a", "href")
-	description := el.ChildText("td:nth-child(3)")
-	address := el.ChildText("td:nth-child(4)")
-	rooms := el.ChildText("td:nth-child(5)")
-	area := el.ChildText("td:nth-child(6)")
-	// floor := el.ChildText("td:nth-child(7)")
-	// land := el.ChildText("td:nth-child(9)")
-	price := el.ChildText("td:nth-child(10)")
-	baseUrl := "https://www.ss.com"
+// func processFlat(el *colly.HTMLElement, priceFilter, roomFilter, transactionType string) string {
+// 	url := el.ChildAttr("td:nth-child(3) a", "href")
+// 	description := el.ChildText("td:nth-child(3)")
+// 	address := el.ChildText("td:nth-child(4)")
+// 	rooms := el.ChildText("td:nth-child(5)")
+// 	area := el.ChildText("td:nth-child(6)")
+// 	// floor := el.ChildText("td:nth-child(7)")
+// 	// land := el.ChildText("td:nth-child(9)")
+// 	price := el.ChildText("td:nth-child(10)")
+// 	baseUrl := "https://www.ss.com"
 
-	areaInt, err := strconv.ParseUint(area, 10, 16)
-	if err != nil {
-		fmt.Printf("Error converting area: %v\n", err)
-		return ""
-	}
+// 	areaInt, err := strconv.ParseUint(area, 10, 16)
+// 	if err != nil {
+// 		fmt.Printf("Error converting area: %v\n", err)
+// 		return ""
+// 	}
 
-	// floorsInt, err := strconv.ParseUint(floor, 10, 8)
-	// if err != nil {
-	// 	fmt.Printf("Error converting floors: %v\n", err)
-	// 	return ""
-	// }
+// 	// floorsInt, err := strconv.ParseUint(floor, 10, 8)
+// 	// if err != nil {
+// 	// 	fmt.Printf("Error converting floors: %v\n", err)
+// 	// 	return ""
+// 	// }
 
-	roomsInt, err := strconv.ParseFloat(rooms, 32)
-	if err != nil {
-		fmt.Printf("Error converting rooms: %v\n", err)
-		return ""
-	}
+// 	roomsInt, err := strconv.ParseFloat(rooms, 32)
+// 	if err != nil {
+// 		fmt.Printf("Error converting rooms: %v\n", err)
+// 		return ""
+// 	}
 
-	// land = strings.Replace(land, " m²", "", -1)
-	// landInt, err := strconv.ParseUint(land, 10, 16)
-	// if err != nil {
-	// 	fmt.Printf("Error converting land: %v\n", err)
-	// 	return ""
-	// }
+// 	// land = strings.Replace(land, " m²", "", -1)
+// 	// landInt, err := strconv.ParseUint(land, 10, 16)
+// 	// if err != nil {
+// 	// 	fmt.Printf("Error converting land: %v\n", err)
+// 	// 	return ""
+// 	// }
 
-	if transactionType == "sell" {
-		price = strings.Replace(price, "  €", "", -1)
-	} else {
-		parts := strings.Split(price, "€")
-		price = strings.ReplaceAll(parts[0], " ", "")
-	}
-	price = strings.ReplaceAll(price, ",", "")
-	priceFloat, err := strconv.ParseFloat(price, 32)
-	if err != nil {
-		fmt.Printf("Error converting price: %v\n", err)
-		return ""
-	}
-	pf, _ := utils.StringToFloat32(priceFilter)
-	rf, _ := utils.StringToFloat32(roomFilter)
-	url = baseUrl + url
-	residence := Residence{Url: url, Description: description, Address: address, Area: uint16(areaInt), Floors: uint8(0), Rooms: float32(roomsInt), Land: uint16(0), Price: float32(priceFloat)}
+// 	if transactionType == "sell" {
+// 		price = strings.Replace(price, "  €", "", -1)
+// 	} else {
+// 		parts := strings.Split(price, "€")
+// 		price = strings.ReplaceAll(parts[0], " ", "")
+// 	}
+// 	price = strings.ReplaceAll(price, ",", "")
+// 	priceFloat, err := strconv.ParseFloat(price, 32)
+// 	if err != nil {
+// 		fmt.Printf("Error converting price: %v\n", err)
+// 		return ""
+// 	}
+// 	pf, _ := utils.StringToFloat32(priceFilter)
+// 	rf, _ := utils.StringToFloat32(roomFilter)
+// 	url = baseUrl + url
+// 	residence := Residence{Url: url, Description: description, Address: address, Area: uint16(areaInt), Floors: uint8(0), Rooms: float32(roomsInt), Land: uint16(0), Price: float32(priceFloat)}
 
-	if residence.Price <= pf && residence.Rooms >= rf {
-		return residence.Url
-	}
-	return ""
-}
+// 	if residence.Price <= pf && residence.Rooms >= rf {
+// 		return residence.Url
+// 	}
+// 	return ""
+// }
