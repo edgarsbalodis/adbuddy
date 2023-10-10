@@ -95,7 +95,8 @@ func (b *Bot) scraperCron() {
 
 	for _, r := range responses {
 		answerMap := AnswersToMap(r.Answers)
-		ads := scrape(answerMap, r.Timestamp.Format("02.01.2006 15:04"), r.ChatID)
+		timestamp := r.Timestamp.In(loc).Format("02.01.2006 15:04")
+		ads := scrape(answerMap, timestamp, r.ChatID)
 
 		if len(ads) > 0 {
 			for _, ad := range ads {
