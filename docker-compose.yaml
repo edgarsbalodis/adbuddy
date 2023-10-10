@@ -1,0 +1,19 @@
+version: "3"
+
+services:
+  go-bot:
+    container_name: go-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - db
+    restart: on-failure
+  db:
+    image: mongo
+    container_name: db 
+    ports:
+      - 27119:27017
+    volumes:
+      - ./mongod.conf:/etc/mongod.conf
+    entrypoint: ["mongod", "--auth", "--config", "/etc/mongod.conf"]
