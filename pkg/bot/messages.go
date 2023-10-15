@@ -16,7 +16,8 @@ func (b *Bot) handleMessage(update tgbotapi.Update, userContexts UserContextMap)
 	text := strings.ToLower(update.Message.Text)
 	userID := update.Message.From.ID
 	chatID := update.Message.Chat.ID
-	// // check if /start command's conversation is in-progress already
+
+	// check if /start command's conversation is in-progress already
 	if ctx, exists := userContexts[userID]; exists {
 		// there cannot be a case that user is having existing conversation and not valid
 		b.handleUserResponses(chatID, ctx, userContexts, text)
@@ -38,6 +39,10 @@ func (b *Bot) handleMessage(update tgbotapi.Update, userContexts UserContextMap)
 		case "/help":
 			b.handleHelpCommand(chatID)
 		default:
+			if !isUserValid(userID) {
+				b.sendNotAllowedMessage(chatID)
+				return
+			}
 			b.sendUnknownCommandMessage(chatID)
 		}
 	}

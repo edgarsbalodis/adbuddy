@@ -26,7 +26,6 @@ func AnswersToMap(answers []storage.Answer) AnswersMap {
 		} else {
 			ansMap[ans.Key] = ans.Value
 		}
-		fmt.Printf("ans %v type: %T", ans.Key, ans.Value)
 	}
 	return ansMap
 }
@@ -119,7 +118,7 @@ func (b *Bot) StartScraperCron() {
 	c.AddFunc("@every 1h", func() {
 		loc, _ := time.LoadLocation("Europe/Riga")
 		t := time.Now().In(loc)
-		if t.Hour() > 5 || t.Hour() < 23 {
+		if t.Hour() > 5 && t.Hour() < 23 {
 			b.scraperCron()
 		} else {
 			return

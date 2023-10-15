@@ -45,21 +45,20 @@ func ScrapeDataNew(filter interface{}) []string {
 	c := colly.NewCollector()
 
 	var (
-		shouldStop      bool   // based on timestamp
-		initialPage     string // if initialPage is "", that means there is no filters or problem with filter, so return empty slice
-		adType          string
-		priceFilter     string
-		roomFilter      string
-		transactionType string
-		timestamp       string
-		rf              float32 // room filter to float32
-		nextHref        string
-		urls            []string
-		subr            string
+		shouldStop  bool   // based on timestamp
+		initialPage string // if initialPage is "", that means there is no filters or problem with filter, so return empty slice
+		// adType          string
+		priceFilter string
+		roomFilter  string
+		// transactionType string
+		timestamp string
+		rf        float32 // room filter to float32
+		nextHref  string
+		urls      []string
+		subr      string
 	)
 	// Create another collector to scrape ad details
 	detailCollector := c.Clone()
-	fmt.Print(adType, priceFilter, transactionType)
 
 	// creates url based on filter
 	baseUrl := "https://www.ss.com"
@@ -150,9 +149,42 @@ func ScrapeDataNew(filter interface{}) []string {
 			return
 		}
 	})
+	// var dateFromAd string
+	// get date from ad
+	// I can refactor this, so I can get all information from this detail collector
+	detailCollector.OnHTML("table#page_main > tbody > tr:nth-child(2) > td > table > tbody > tr:nth-child(2) > td:nth-child(2)", func(e *colly.HTMLElement) {
+		date := e.Text
+		t := formatDate(date)
+		// TODO: format properly
+		layout := "02.01.2006 15:04 Europe/Riga"
+		// Load the "Europe/Riga" time zone
+		rigaLocation, err := time.LoadLocation("Europe/Riga")
+		if err != nil {
+			fmt.Println("Error loading location:", err)
+		}
+		// // Parse the input string into a time.Time object
+		// t, err := time.Parse(layout, dateFromAd)
+		// if err != nil {
+		// 	fmt.Println("Error parsing time:", err)
+		// 	return
+		// }
+
+		// 02.10.2023 15:00  ad date
+		// 02.10.2023 14:00 last timestamp
+		// 01.10.2023 pirms 02.10.2023
+		lastUpdatedTime, _ := time.ParseInLocation(layout, timestamp+" Europe/Riga", rigaLocation)
+		// fmt.Printf("Time from ad: %v \n Time from filter: %v\n\n", t, lastUpdatedTime)
+		if t.Before(lastUpdatedTime) {
+			shouldStop = true
+		}
+	})
 
 	// Get all Details about ad (right now, just rooms)
 	detailCollector.OnHTML("table.options_list > tbody > tr > td > table > tbody > tr", func(e *colly.HTMLElement) {
+		// fmt.Printf("should stop: %v\n", shouldStop)
+		if shouldStop {
+			return
+		}
 		key := e.ChildText("td.ads_opt_name") // "Istabas"
 		value := e.ChildText("td.ads_opt")    // "5"
 
@@ -177,39 +209,35 @@ func ScrapeDataNew(filter interface{}) []string {
 		}
 	})
 
-	var dateFromAd string
-	// get date from ad
-	// I can refactor this, so I can get all information from this detail collector
-	detailCollector.OnHTML("table#page_main > tbody > tr:nth-child(2) > td > table > tbody > tr:nth-child(2) > td:nth-child(2)", func(e *colly.HTMLElement) {
-		date := e.Text
-		date = strings.Replace(date, "Datums: ", "", -1)
-		dateFromAd = date
-
-		layout := "02.01.2006 15:04"
-
-		// Parse the input string into a time.Time object
-		t, err := time.Parse(layout, dateFromAd)
-		if err != nil {
-			fmt.Println("Error parsing time:", err)
-			return
-		}
-
-		// 02.10.2023 15:00  ad date
-		// 02.10.2023 14:00 last timestamp
-		// 01.10.2023 pirms 02.10.2023
-		timestamp, _ := time.Parse(layout, timestamp)
-		if t.Before(timestamp) {
-			shouldStop = true
-		}
-	})
-
 	c.OnRequest(func(r *colly.Request) {
 		fmt.Println("Visiting", r.URL)
 	})
 
 	c.Visit(baseUrl + initialPage)
-	fmt.Printf("Scraped from %v: %v", subr, urls)
+	fmt.Printf("Scraped from %v: %v\n", subr, urls)
 	return urls
+}
+
+func formatDate(date string) time.Time {
+	// remove Datums: string and andd timezone for latvia
+	dateFromAd := strings.SplitN(date, "Datums: ", 2)[1] + " Europe/Riga"
+
+	// Load the "Europe/Riga" time zone
+	rigaLocation, err := time.LoadLocation("Europe/Riga")
+	if err != nil {
+		fmt.Println("Error loading location:", err)
+	}
+	// updated layout for right timezone
+	layout := "02.01.2006 15:04 Europe/Riga"
+
+	// Parse the input string into a time.Time object
+	t, err := time.ParseInLocation(layout, dateFromAd, rigaLocation)
+
+	// t, err := time.Parse(layout, dateFromAd)
+	if err != nil {
+		fmt.Println("Error parsing time:", err)
+	}
+	return t
 }
 
 // think better solution what to return

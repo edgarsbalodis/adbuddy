@@ -62,6 +62,7 @@ func (b *Bot) handleUseFilterCallback(responseID string) {
 }
 
 // todo: think of better func name
+// processFollowUpAnswer
 func (b *Bot) processAnswer(ctx *UserContext, chatID int64, answer string, userContexts UserContextMap) {
 	if answer == "no" {
 		b.askQuestion(ctx, userContexts, chatID, false)
