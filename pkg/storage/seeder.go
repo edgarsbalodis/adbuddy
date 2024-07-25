@@ -11,9 +11,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// todo: create seeder function for
-// main question for type
-//
+// TODO:
+//	[ ] create json files for questions
+//	[ ] create functionality for migrating data with json files
 
 func (s *Storage) Seed() {
 	s.QuestionSeeder()

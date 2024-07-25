@@ -16,6 +16,7 @@ func (b *Bot) handleMessage(update tgbotapi.Update, userContexts UserContextMap)
 	text := strings.ToLower(update.Message.Text)
 	userID := update.Message.From.ID
 	chatID := update.Message.Chat.ID
+	username := update.Message.From.UserName
 
 	// check if /start command's conversation is in-progress already
 	if ctx, exists := userContexts[userID]; exists {
@@ -25,21 +26,23 @@ func (b *Bot) handleMessage(update tgbotapi.Update, userContexts UserContextMap)
 		switch text {
 		case "/start":
 			// check for valid userIDs
-			if !isUserValid(userID) {
+			if !b.Storage.IsUserValid(userID) {
 				b.sendNotAllowedMessage(chatID)
 				return
 			}
 			b.handleStartCommand(chatID, userID, userContexts, text)
 		case "/filters":
-			if !isUserValid(userID) {
+			if !b.Storage.IsUserValid(userID) {
 				b.sendNotAllowedMessage(chatID)
 				return
 			}
 			b.handleFiltersFunction(userID, chatID)
 		case "/help":
 			b.handleHelpCommand(chatID)
+		case "/iknowyourboss":
+			b.handleBossCommand(username, chatID, userID)
 		default:
-			if !isUserValid(userID) {
+			if !b.Storage.IsUserValid(userID) {
 				b.sendNotAllowedMessage(chatID)
 				return
 			}
@@ -163,9 +166,10 @@ func (b *Bot) sendSuccessMessage(chatID int64) {
 }
 
 func (b *Bot) handleHelpCommand(chatID int64) {
-	reply := "Welcome to AdBuddyBot, I will help you find ads 🏡 🏎️ \n\n"
+	reply := "Welcome to AdBuddyBot v1, I will help you find ads 🏡 🏎️🧑‍💼 \n"
+	reply += "After creating a filter you will get all available ads based on your filter and then newest each hour\n\n"
 	reply += "Available commands:\n"
-	reply += "/start - starts conversation about what ads you are looking for\n"
+	reply += "/start - starts conversation where you can create filter for ads\n"
 	reply += "/filters - returns previous filters so you can immediately start searching\n"
 	reply += "/help - this is message you see right now"
 
@@ -176,8 +180,38 @@ func (b *Bot) handleHelpCommand(chatID int64) {
 	}
 }
 
+// This is hidden functionality
+func (b *Bot) handleBossCommand(username string, chatID, userID int64) {
+	// save or do something with userID
+	user, err := b.Storage.FindUser(int(userID))
+	var reply string
+
+	if err != nil {
+		log.Printf("Error finding user: %v", err)
+		return
+	}
+
+	if user.Username == username {
+		reply = fmt.Sprintf("%s, you already exist!", username)
+	} else {
+		newUser := storage.NewUser(int(userID), int(chatID), username, true)
+		user, err := b.Storage.SaveUser(*newUser)
+		if err != nil {
+			log.Printf("Error sending message: %v", err)
+		}
+
+		reply = fmt.Sprintf("You are in %s, say thank you to my boss! ✌️\n", user.Username)
+	}
+	msg := tgbotapi.NewMessage(chatID, reply)
+	_, er := b.tgBot.Send(msg)
+	if er != nil {
+		log.Printf("Error sending message: %v", er)
+	}
+
+}
+
 func (b *Bot) sendUnknownCommandMessage(chatID int64) {
-	reply := "I don't know this command"
+	reply := "I don't know this command, try /help"
 
 	msg := tgbotapi.NewMessage(chatID, reply)
 	_, err := b.tgBot.Send(msg)

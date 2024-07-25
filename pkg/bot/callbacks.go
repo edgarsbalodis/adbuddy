@@ -13,7 +13,7 @@ func (b *Bot) handleQueryCallback(update tgbotapi.Update, userContexts UserConte
 	userID := update.CallbackQuery.From.ID
 	chatID := update.CallbackQuery.Message.Chat.ID
 	// there cannot be a case that user is allowed to send callback message if not valid
-	if !isUserValid(userID) {
+	if !b.Storage.IsUserValid(userID) {
 		b.sendNotAllowedMessage(chatID)
 		return
 	}
