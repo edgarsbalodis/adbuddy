@@ -16,7 +16,6 @@ func (b *Bot) handleMessage(update tgbotapi.Update, userContexts UserContextMap)
 	text := strings.ToLower(update.Message.Text)
 	userID := update.Message.From.ID
 	chatID := update.Message.Chat.ID
-	username := update.Message.From.UserName
 
 	// check if /start command's conversation is in-progress already
 	if ctx, exists := userContexts[userID]; exists {
@@ -40,7 +39,7 @@ func (b *Bot) handleMessage(update tgbotapi.Update, userContexts UserContextMap)
 		case "/help":
 			b.handleHelpCommand(chatID)
 		case "/iknowyourboss":
-			b.handleBossCommand(username, chatID, userID)
+			b.handleBossCommand(update)
 		default:
 			if !b.Storage.IsUserValid(userID) {
 				b.sendNotAllowedMessage(chatID)
@@ -181,9 +180,16 @@ func (b *Bot) handleHelpCommand(chatID int64) {
 }
 
 // This is hidden functionality
-func (b *Bot) handleBossCommand(username string, chatID, userID int64) {
+func (b *Bot) handleBossCommand(update tgbotapi.Update) {
 	// save or do something with userID
-	user, err := b.Storage.FindUser(int(userID))
+	// log.Printf("First name: %s", update.Message.From.FirstName)
+	userID := update.Message.From.ID
+	chatID := update.Message.Chat.ID
+	firstname := update.Message.From.FirstName
+	lastname := update.Message.From.LastName
+	username := update.Message.From.UserName
+
+	user, err := b.Storage.FindUser(userID)
 	var reply string
 
 	if err != nil {
@@ -191,23 +197,22 @@ func (b *Bot) handleBossCommand(username string, chatID, userID int64) {
 		return
 	}
 
-	if user.Username == username {
-		reply = fmt.Sprintf("%s, you already exist!", username)
+	if user.UserID == userID {
+		reply = fmt.Sprintf("%s %s (%s), you already exist!", firstname, lastname, username)
 	} else {
-		newUser := storage.NewUser(int(userID), int(chatID), username, true)
-		user, err := b.Storage.SaveUser(*newUser)
+		newUser := storage.NewUser(userID, chatID, username, true)
+		_, err := b.Storage.SaveUser(*newUser)
 		if err != nil {
-			log.Printf("Error sending message: %v", err)
+			log.Printf("Error saving user: %v", err)
 		}
 
-		reply = fmt.Sprintf("You are in %s, say thank you to my boss! ✌️\n", user.Username)
+		reply = fmt.Sprintf("You are in %s %s (%s), say thank you to my boss! ✌️\n", firstname, lastname, username)
 	}
 	msg := tgbotapi.NewMessage(chatID, reply)
 	_, er := b.tgBot.Send(msg)
 	if er != nil {
 		log.Printf("Error sending message: %v", er)
 	}
-
 }
 
 func (b *Bot) sendUnknownCommandMessage(chatID int64) {

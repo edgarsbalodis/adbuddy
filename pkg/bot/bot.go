@@ -1,5 +1,8 @@
 package bot
 
+//TODO:
+// ADD VENDOR dir
+
 import (
 	"log"
 

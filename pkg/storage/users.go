@@ -10,13 +10,13 @@ import (
 
 type User struct {
 	ID       primitive.ObjectID `bson:"_id,omitempty"`
-	UserID   int                `bson:"user_id,omitempty"`
-	ChatID   int                `bson:"chat_id,omitempty"`
+	UserID   int64              `bson:"user_id,omitempty"`
+	ChatID   int64              `bson:"chat_id,omitempty"`
 	Username string             `bson:"username"`
 	IsActive bool               `bson:"is_active"`
 }
 
-func NewUser(userID int, chatID int, username string, isActive bool) *User {
+func NewUser(userID int64, chatID int64, username string, isActive bool) *User {
 	return &User{
 		UserID:   userID,
 		ChatID:   chatID,
@@ -25,7 +25,7 @@ func NewUser(userID int, chatID int, username string, isActive bool) *User {
 	}
 }
 
-func (s *Storage) FindUser(userID int) (User, error) {
+func (s *Storage) FindUser(userID int64) (User, error) {
 	collection := s.GetCollection("users")
 
 	filter := bson.D{primitive.E{Key: "user_id", Value: userID}}

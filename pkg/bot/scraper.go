@@ -84,6 +84,10 @@ func scrape(answers AnswersMap, timestamp string, chatID int64) []string {
 	return urls
 }
 
+// TODO:
+// check if user is active for filter
+// 1. request to db for all active user ids, chat id, whatever, get slice
+// 2. before start use anser check if that ids is in the list
 func (b *Bot) scraperCron() {
 	responses := b.Storage.GetResponses()
 	if len(responses) < 1 {
