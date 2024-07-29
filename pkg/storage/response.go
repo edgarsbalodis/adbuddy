@@ -32,6 +32,25 @@ func (s *Storage) SaveResponse(response Response) {
 	}
 }
 
+func (s *Storage) DeleteResponse(responseID string) {
+	coll := s.GetCollection("responses")
+
+	//delete from DB
+	id, err := primitive.ObjectIDFromHex(responseID)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	filter := bson.M{"_id": id}
+
+	res, err := coll.DeleteOne(context.Background(), filter)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Print(res)
+}
+
 func (s *Storage) UpdateTimestamp(responseID string) error {
 	id, err := primitive.ObjectIDFromHex(responseID)
 	if err != nil {

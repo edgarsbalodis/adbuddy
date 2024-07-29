@@ -23,7 +23,8 @@ func (b *Bot) handleQueryCallback(update tgbotapi.Update, userContexts UserConte
 		o := strings.TrimPrefix(answer, "use_btn_")
 		b.handleUseFilterCallback(o)
 	case strings.Contains(answer, "delete_btn_"):
-		// TODO: handles delete filter callback
+		value := strings.TrimPrefix(answer, "delete_btn_")
+		b.handleDeleteAnswerCallback(chatID, userID, value)
 	case strings.Contains(answer, "follow_up_"):
 		value := strings.TrimPrefix(answer, "follow_up_")
 		if ctx, ok := userContexts[userID]; ok {
@@ -59,6 +60,29 @@ func (b *Bot) handleUseFilterCallback(responseID string) {
 		log.Print(err)
 	}
 	fmt.Printf("Response: %v", response)
+}
+
+// TODO:
+// Finish this
+// After deleting, maybe I can edit last message "/filters" without deleted answer
+func (b *Bot) handleDeleteAnswerCallback(chatID int64, userID int64, responseID string) {
+	// get response by responseID
+	response := b.Storage.GetResponse(responseID)
+	if response.UserID == 0 {
+		log.Fatalf("does not exist: %s", response.ID)
+	}
+
+	// if userID is not the same cancel
+	if response.UserID != userID {
+		msg := tgbotapi.NewMessage(chatID, "Couldn't delete this answer")
+		b.tgBot.Send(msg)
+		return
+	}
+
+	b.Storage.DeleteResponse(responseID)
+
+	msg := tgbotapi.NewMessage(chatID, "Answer deleted successfully")
+	b.tgBot.Send(msg)
 }
 
 // todo: think of better func name
