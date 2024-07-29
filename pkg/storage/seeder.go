@@ -77,6 +77,7 @@ func (s *Storage) QuestionSeeder() {
 				{Text: "Rīgas raj.", Value: "riga-region"},
 				{Text: "Rīga", Value: "riga"},
 				{Text: "Jūrmala", Value: "jurmala"},
+				{Text: "Cēsu raj.", Value: "cesis-and-reg"},
 			},
 		},
 		&Question{
@@ -88,6 +89,7 @@ func (s *Storage) QuestionSeeder() {
 				{Text: "Babītes pag.", Value: "babites-pag", Condition: "riga-region"},
 				{Text: "Centre", Value: "centre", Condition: "riga"},
 				{Text: "Āgenskalns", Value: "agenskalns", Condition: "riga"},
+				{Text: "Cēsis", Value: "cesis", Condition: "cesis-and-reg"},
 			},
 		},
 	}
